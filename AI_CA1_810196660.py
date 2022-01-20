@@ -75,7 +75,7 @@ class dungeon:
         #initiating the fighting procedure with thanos. this is the creation of the initial state
         
         self.start_state = time_frame_state(drstranges, potions, drugs) 
-        self.strat_state.distance = 0
+        self.strat_state.current_distance = 0
         self.strat_state.index = 0
         
 
@@ -144,7 +144,7 @@ class dungeon:
             return False
         #check if dr.Stranges are in the anticipated positions
         for index in range(len(state.drstranges)):
-            if not (state.drstranges[index][1] == self.col_num-1 and state.drstranges[index][0] == self.row_num-1)
+            if not (state.drstranges[index][1] == self.col_num-1 and state.drstranges[index][0] == self.row_num-1):
                 return False
         return True
 
@@ -164,5 +164,152 @@ class dungeon:
                 return index
         return -1
 
+
+    def breadth_first_search(self):
+        head = 0
+
+        explored = set()
+        explored.add(self.start_state)
+        self.qeueu.append(self.start_state)
+
+        while (len(self.qeueu) != 0):
+
+            node = self.qeueu[head] 
+            children_nodes = self.retrieve_children(node)
+            for child in children_nodes:
+                if not(child in explored):
+                    child.index = len(self.qeueu) # index in qeueu list
+                    child.parent = node.index
+                    child.current_distance = node.current_distance+1
+                    self.qeueu.append(child)
+                    explored.add(child)
+                    if self.goal_state_check(child):
+                        return child
+            head += 1
     
 
+    def depth_first_search(self, current, depth_limit, explored):
+        
+        if (current.current_distance > depth_limit):
+            return None # goal state is not in this subtree
+
+        children_node = self.retrieve_children(current)
+        for child in children_node:
+            if not(child in explored) or current.current_distance < explored[child] -1 :
+                child.index = len(self.qeueu)
+                child.parent = current.index
+                child.current_distance = current.current_distance + 1
+                explored[child] = child.current_distance
+                self.qeueu.append(child)
+                if self.goal_state_check(child):
+                    return child
+                out = self.depth_first_search(child, current, depth_limit, explored)
+                if out is not None:
+                    return out
+
+    def depth_search(self):
+        limit = 1
+        while True:
+            print("depth limit:", limit)
+            explored = dict()
+            explored[self.start_state] = 0
+            self.qeueu = []
+            self.qeueu.append(self.start_state)
+            out = self.depth_first_search(self.start_state, None, limit, explored)
+            if out is not None:
+                return out
+            limit += 1
+
+    
+    def a_star_search(self, weight=1):
+        frontier = [] 
+
+        heapq.heappush(frontier, (self.retrieve_heuristic(self.start_state)*weight, 0))
+
+        explored = set()
+        explored.add(self.start_state)
+        
+        self.qeueu.append(self.start_state)
+
+        while (len(frontier) != 0):
+            node_index = heapq.heappop(frontier)[1] # get smallest f(n) in frontier list
+            node = self.qeueu[node_index]
+
+            children = self.retrieve_children(node)
+            for child_node in children:
+                if not(child_node in explored):
+                    child_node.index = len(self.qeueu) # index in qeueu list
+                    child_node.parent = node.index
+                    child_node.current_distance = node.current_distance+1
+                    heapq.heappush(frontier, (child_node.current_distance + self.retrieve_heuristic(child_node)*weight, child_node.index))
+                    self.qeueu.append(child_node)
+                    explored.add(child_node)
+                    if self.goal_state_check(child_node):
+                        return child_node
+        
+
+    def retrieve_path(self, goal_state):
+        path_indices = []
+
+        curr_index = goal_state.id
+        path_indices.append(curr_index)
+        while (curr_index != 0):
+            curr_index = self.qeueu[curr_index].parent
+            path_indices.append(curr_index)
+        path_indices.reverse()
+        return path_indices
+
+    def print_path(self, path_indices):
+        for i in range(len(path_indices)-1):
+            index = self.list_difference_index(self.qeueu[path_indices[i]].drstranges, self.qeueu[path_indices[i+1]].drstranges)
+            if (index==-1):
+                print("*not found different index!")
+                continue
+            print(str(i+1) + ".", "doctor #" + str(index+1), "move ",
+                self.qeueu[path_indices[i]].drstranges[index], " -> ", self.qeueu[path_indices[i+1]].drstranges[index])    
+    
+
+    def print_bfs_solution(self):
+        start_time = time.time()
+        goal_state = self.breadth_first_search()
+
+        print("minimum steps: ", goal_state.current_distance)
+        print("visited states: ", len(self.qeueu))
+        print("path length to goal: ")
+        path_indices = self.retrieve_path(goal_state)
+        self.print_path(path_indices)
+
+        end_time = time.time()
+
+        print("total time = ", end_time - start_time)
+
+    def print_ids_solution(self):
+        start_time = time.time()
+        goal_state = self.depth_search()
+
+        print("minimum steps: ", goal_state.current_distance)
+        print("visited states: ", len(self.qeueu))
+        print("path length to goal: ")
+        path_indices = self.retrieve_path(goal_state)
+        self.print_path(path_indices)
+
+        end_time = time.time()
+
+        print("total time = ", end_time - start_time)
+
+    def print_astar_solution(self, parameter):
+        start_time = time.time()
+        goal_state = self.a_star_search(parameter)
+
+        print("minimum steps: ", goal_state.current_distance)
+        print("visited states: ", len(self.qeueu))
+        print("path length to goal: ")
+        path_indices = self.retrieve_path(goal_state)
+        self.print_path(path_indices)
+
+        end_time = time.time()
+        print("total time = ", end_time - start_time)
+    
+FILE_NUMBER = 1
+game = dungeon("test" + str(FILE_NUMBER) + ".in")
+game.print_solution()
